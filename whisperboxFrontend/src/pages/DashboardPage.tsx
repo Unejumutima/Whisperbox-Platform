@@ -1,28 +1,40 @@
 import { useNavigate } from 'react-router-dom'
 import { HiChatAlt2, HiEye, HiPencilAlt, HiRss, HiTrendingUp } from 'react-icons/hi'
-import { MOCK_WHISPERS } from '../utils/mockData'
-import WhisperCard from '../components/ui/WhisperCard'
-
-/* ── Mock stats derived from mock data ──────────────────────────────────── */
-const total  = MOCK_WHISPERS.length
-const unseen = MOCK_WHISPERS.filter((w) => w.status === 'NOT_SEEN').length
-const today  = 2 // mock value
-
-const stats = [
-  { label: 'Total Whispers', value: total,  Icon: HiChatAlt2,   color: 'text-sky-400',     bg: 'bg-sky-500/10'    },
-  { label: 'Unseen',         value: unseen, Icon: HiEye,        color: 'text-indigo-400',  bg: 'bg-indigo-500/10' },
-  { label: 'Created Today',  value: today,  Icon: HiPencilAlt,  color: 'text-violet-400',  bg: 'bg-violet-500/10' },
-]
+import { useAuth }      from '../hooks/useAuth'
+import { useWhispers }  from '../hooks/useWhispers'
+import WhisperCard      from '../components/ui/WhisperCard'
+import LoadingSpinner   from '../components/ui/LoadingSpinner'
 
 /**
- * Dashboard — first page the user sees after logging in.
- * Shows welcome message, stat cards, quick actions, and a recent whispers preview.
+ * Dashboard — first page after login.
+ * Fetches real stats and a preview of the latest unseen whispers.
  */
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
 
-  // Show only the 2 most recent unseen whispers as a preview
-  const recent = MOCK_WHISPERS.filter((w) => w.status === 'NOT_SEEN').slice(0, 2)
+  // Fetch first page of whispers for stats + preview
+  const { whispers, pageInfo, loading, error } = useWhispers({ size: 20, direction: 'desc' })
+
+  // Derive stats from the fetched data
+  const totalAll  = pageInfo?.totalElements ?? 0
+  const unseenAll = whispers.filter((w) => w.status === 'NOT_SEEN').length
+  // "Created today" — whispers whose createdAt date matches today
+  const today = new Date().toDateString()
+  const todayCount = whispers.filter((w) => {
+    if (!w.createdAt || !Array.isArray(w.createdAt)) return false
+    const [y, m, d] = w.createdAt as number[]
+    return new Date(y, m - 1, d).toDateString() === today
+  }).length
+
+  const stats = [
+    { label: 'Total Whispers', value: totalAll,   Icon: HiChatAlt2, color: 'text-sky-400',    bg: 'bg-sky-500/10'    },
+    { label: 'Unseen',         value: unseenAll,  Icon: HiEye,      color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
+    { label: 'Created Today',  value: todayCount, Icon: HiPencilAlt, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+  ]
+
+  // Show up to 3 most recent unseen whispers in the preview section
+  const recentUnseen = whispers.filter((w) => w.status === 'NOT_SEEN').slice(0, 3)
 
   return (
     <div className="page-container animate-fade-in space-y-10">
@@ -32,7 +44,11 @@ export default function DashboardPage() {
         <div>
           <h1 className="page-title">Dashboard</h1>
           <p className="text-white/50 mt-1.5 text-sm">
-            Welcome back, <span className="text-sky-400 font-medium">Silent Panda</span> 👋
+            Welcome back,{' '}
+            <span className="text-sky-400 font-medium">
+              {user?.anonymousName ?? '…'}
+            </span>{' '}
+            👋
           </p>
         </div>
         <button className="btn-primary self-start sm:self-auto" onClick={() => navigate('/create')}>
@@ -48,7 +64,10 @@ export default function DashboardPage() {
               <Icon size={22} className={color} />
             </div>
             <div>
-              <p className="text-3xl font-bold text-white">{value}</p>
+              {loading
+                ? <div className="w-10 h-8 bg-white/10 rounded-lg animate-pulse" />
+                : <p className="text-3xl font-bold text-white">{value}</p>
+              }
               <p className="text-white/40 text-sm mt-0.5">{label}</p>
             </div>
           </div>
@@ -61,7 +80,6 @@ export default function DashboardPage() {
           <HiTrendingUp size={18} className="text-sky-400" /> Quick Actions
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          {/* View Feed */}
           <div className="glass p-6 flex flex-col gap-4 hover:border-sky-500/20 transition-all duration-200">
             <div className="flex items-start gap-3">
               <div className="bg-sky-500/10 rounded-xl p-2.5 shrink-0">
@@ -79,7 +97,6 @@ export default function DashboardPage() {
             </button>
           </div>
 
-          {/* Create */}
           <div className="glass p-6 flex flex-col gap-4 hover:border-sky-500/20 transition-all duration-200">
             <div className="flex items-start gap-3">
               <div className="bg-indigo-500/10 rounded-xl p-2.5 shrink-0">
@@ -100,22 +117,45 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Recent unseen whispers preview ─────────────────────────── */}
-      {recent.length > 0 && (
-        <div>
-          <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
-            <HiEye size={18} className="text-sky-400" /> New Whispers
-          </h2>
-          <div className="flex flex-col gap-3">
-            {recent.map((w) => <WhisperCard key={w.id} whisper={w} />)}
+      <div>
+        <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
+          <HiEye size={18} className="text-sky-400" /> New Whispers
+        </h2>
+
+        {/* Loading state */}
+        {loading && (
+          <div className="flex justify-center py-10">
+            <LoadingSpinner label="Loading whispers…" />
           </div>
-          <button
-            className="mt-4 text-sky-400 hover:text-sky-300 text-sm font-medium transition-colors"
-            onClick={() => navigate('/feed')}
-          >
-            View all whispers →
-          </button>
-        </div>
-      )}
+        )}
+
+        {/* Error state */}
+        {!loading && error && (
+          <div className="glass border border-red-500/20 p-5 rounded-xl text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!loading && !error && recentUnseen.length === 0 && (
+          <p className="text-white/30 text-sm">No new whispers right now.</p>
+        )}
+
+        {/* Whisper cards */}
+        {!loading && !error && recentUnseen.length > 0 && (
+          <>
+            <div className="flex flex-col gap-3">
+              {recentUnseen.map((w) => <WhisperCard key={w.id} whisper={w} />)}
+            </div>
+            <button
+              className="mt-4 text-sky-400 hover:text-sky-300 text-sm font-medium transition-colors"
+              onClick={() => navigate('/feed')}
+            >
+              View all whispers →
+            </button>
+          </>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,53 +1,83 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { HiPencilAlt, HiCheckCircle, HiExclamationCircle } from 'react-icons/hi'
+import toast from 'react-hot-toast'
 import clsx from 'clsx'
+import { createWhisper } from '../services/whisperService'
 
 const TITLE_MAX   = 100
 const CONTENT_MIN = 5
 const CONTENT_MAX = 2000
 
 interface FormErrors {
-  title?: string
+  title?:   string
   content?: string
 }
 
 /**
  * Create Whisper page.
- * Validates inputs on submit, shows inline error and success messages.
- * No backend call yet — success is simulated.
+ * Validates inputs, calls POST /api/whispers, shows toast on success/failure.
  */
 export default function CreateWhisperPage() {
+  const navigate = useNavigate()
+
   const [title,   setTitle]   = useState('')
   const [content, setContent] = useState('')
   const [errors,  setErrors]  = useState<FormErrors>({})
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  /* Validate and simulate submit */
-  const handleSubmit = (e: React.FormEvent) => {
+  // ── Client-side validation ────────────────────────────────────────────────
+  const validate = (): FormErrors => {
+    const e: FormErrors = {}
+
+    if (!title.trim())
+      e.title = 'Title is required.'
+    else if (title.trim().length > TITLE_MAX)
+      e.title = `Title cannot exceed ${TITLE_MAX} characters.`
+
+    if (!content.trim())
+      e.content = 'Content is required.'
+    else if (content.trim().length < CONTENT_MIN)
+      e.content = `Content must be at least ${CONTENT_MIN} characters.`
+    else if (content.trim().length > CONTENT_MAX)
+      e.content = `Content cannot exceed ${CONTENT_MAX} characters.`
+
+    return e
+  }
+
+  // ── Submit ────────────────────────────────────────────────────────────────
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSuccess(false)
 
-    const newErrors: FormErrors = {}
-    if (!title.trim())                      newErrors.title   = 'Title is required.'
-    else if (title.trim().length > TITLE_MAX) newErrors.title = `Title cannot exceed ${TITLE_MAX} characters.`
-
-    if (!content.trim())                            newErrors.content = 'Content is required.'
-    else if (content.trim().length < CONTENT_MIN)   newErrors.content = `Content must be at least ${CONTENT_MIN} characters.`
-    else if (content.trim().length > CONTENT_MAX)   newErrors.content = `Content cannot exceed ${CONTENT_MAX} characters.`
-
-    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return }
+    const validationErrors = validate()
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors)
+      return
+    }
 
     setErrors({})
     setLoading(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false)
+    try {
+      await createWhisper({ title: title.trim(), content: content.trim() })
+
+      // Success
       setSuccess(true)
       setTitle('')
       setContent('')
-    }, 900)
+      toast.success('Whisper posted successfully!')
+
+      // Navigate to feed after a short delay
+      setTimeout(() => navigate('/feed'), 1500)
+
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to post whisper.'
+      toast.error(msg)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const titleLeft   = TITLE_MAX - title.length
@@ -68,7 +98,7 @@ export default function CreateWhisperPage() {
           <div className="flex items-center gap-3 glass border border-emerald-500/30 bg-emerald-500/10 px-5 py-4 rounded-xl animate-slide-up">
             <HiCheckCircle size={20} className="text-emerald-400 shrink-0" />
             <p className="text-emerald-300 text-sm font-medium">
-              Whisper posted successfully! It is now visible in the feed.
+              Whisper posted! Redirecting to the feed…
             </p>
           </div>
         )}
@@ -77,7 +107,7 @@ export default function CreateWhisperPage() {
         <div className="glass p-7">
           <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
 
-            {/* ── Title field ──────────────────────────────────────── */}
+            {/* Title */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <label htmlFor="title" className="text-white/70 text-sm font-medium">
@@ -87,7 +117,6 @@ export default function CreateWhisperPage() {
                   {titleLeft} left
                 </span>
               </div>
-
               <input
                 id="title"
                 type="text"
@@ -96,8 +125,8 @@ export default function CreateWhisperPage() {
                 maxLength={TITLE_MAX}
                 value={title}
                 onChange={(e) => { setTitle(e.target.value); setErrors((p) => ({ ...p, title: undefined })) }}
+                disabled={loading}
               />
-
               {errors.title && (
                 <p className="flex items-center gap-1.5 text-red-400 text-xs">
                   <HiExclamationCircle size={13} /> {errors.title}
@@ -105,7 +134,7 @@ export default function CreateWhisperPage() {
               )}
             </div>
 
-            {/* ── Content field ─────────────────────────────────────── */}
+            {/* Content */}
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
                 <label htmlFor="content" className="text-white/70 text-sm font-medium">
@@ -115,7 +144,6 @@ export default function CreateWhisperPage() {
                   {contentLeft} left
                 </span>
               </div>
-
               <textarea
                 id="content"
                 className={clsx('input-field resize-none', errors.content && 'border-red-500/60 focus:border-red-500')}
@@ -124,8 +152,8 @@ export default function CreateWhisperPage() {
                 maxLength={CONTENT_MAX}
                 value={content}
                 onChange={(e) => { setContent(e.target.value); setErrors((p) => ({ ...p, content: undefined })) }}
+                disabled={loading}
               />
-
               {errors.content && (
                 <p className="flex items-center gap-1.5 text-red-400 text-xs">
                   <HiExclamationCircle size={13} /> {errors.content}
@@ -133,15 +161,15 @@ export default function CreateWhisperPage() {
               )}
             </div>
 
-            {/* ── Anonymity notice ──────────────────────────────────── */}
-            <div className="flex items-center gap-2.5 bg-sky-500/8 border border-sky-500/20 rounded-xl px-4 py-3">
+            {/* Anonymity notice */}
+            <div className="flex items-center gap-2.5 bg-sky-500/10 border border-sky-500/20 rounded-xl px-4 py-3">
               <HiPencilAlt size={16} className="text-sky-400 shrink-0" />
               <p className="text-sky-300/80 text-xs leading-relaxed">
                 This whisper will be posted under your anonymous alias. Your real identity will never be shown.
               </p>
             </div>
 
-            {/* ── Submit ────────────────────────────────────────────── */}
+            {/* Submit */}
             <button type="submit" className="btn-primary w-full py-3" disabled={loading}>
               {loading
                 ? <><span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> Posting…</>

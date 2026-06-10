@@ -1,24 +1,26 @@
 import { Outlet } from 'react-router-dom'
 import Navbar from './Navbar'
 import Sidebar from './Sidebar'
+import { useAuth } from '../../hooks/useAuth'
 
 /**
- * Shared layout for all authenticated pages.
- * Structure: fixed Navbar on top, Sidebar on the left, page content via <Outlet />.
- * pt-16 offsets the fixed navbar.
+ * AppLayout — shared shell for all authenticated pages.
  *
- * In a future phase, anonymousName/email/isAdmin will come from AuthContext.
+ * Reads the real user from AuthContext so Navbar and Sidebar
+ * show the actual anonymous name, email, and role.
  */
 export default function AppLayout() {
+  const { user } = useAuth()
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
-      <Navbar anonymousName="Silent Panda" />
+      <Navbar anonymousName={user?.anonymousName} />
 
       <div className="flex flex-1 pt-16">
         <Sidebar
-          anonymousName="Silent Panda"
-          email="student@school.edu"
-          isAdmin={false}
+          anonymousName={user?.anonymousName}
+          email={user?.email}
+          isAdmin={user?.role === 'ADMIN'}
         />
         <main className="flex-1 overflow-auto min-w-0">
           <Outlet />

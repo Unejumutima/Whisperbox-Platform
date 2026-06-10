@@ -1,31 +1,40 @@
 import { useState } from 'react'
-import { HiLogout, HiUser, HiMail, HiBadgeCheck, HiCalendar, HiPencilAlt } from 'react-icons/hi'
+import { useNavigate } from 'react-router-dom'
+import { HiLogout, HiUser, HiMail, HiBadgeCheck, HiCalendar } from 'react-icons/hi'
+import { useAuth } from '../hooks/useAuth'
 import Modal from '../components/ui/Modal'
-
-/* Mock profile data — replaced by AuthContext in next phase */
-const MOCK_USER = {
-  anonymousName: 'Silent Panda',
-  email:         'student@school.edu',
-  role:          'STUDENT',
-  memberSince:   'June 2026',
-  whisperCount:  3,
-}
+import LoadingSpinner from '../components/ui/LoadingSpinner'
 
 /**
- * Profile page — shows the user's anonymous identity and account info.
- * Logout triggers a confirmation modal.
+ * ProfilePage — shows the logged-in user's anonymous identity and account info.
+ * Reads real data from AuthContext. Logout clears the token and redirects home.
  */
 export default function ProfilePage() {
+  const { user, logout } = useAuth()
+  const navigate         = useNavigate()
   const [showLogout, setShowLogout] = useState(false)
 
-  const initial = MOCK_USER.anonymousName.charAt(0).toUpperCase()
+  // Should never happen inside ProtectedRoute, but keeps TypeScript happy
+  if (!user) {
+    return (
+      <div className="page-container flex items-center justify-center py-24">
+        <LoadingSpinner label="Loading profile…" />
+      </div>
+    )
+  }
+
+  const initial = user.anonymousName.charAt(0).toUpperCase()
 
   const infoRows = [
-    { Icon: HiMail,       label: 'Email',        value: MOCK_USER.email        },
-    { Icon: HiBadgeCheck, label: 'Role',          value: MOCK_USER.role         },
-    { Icon: HiCalendar,   label: 'Member since',  value: MOCK_USER.memberSince  },
-    { Icon: HiPencilAlt,  label: 'Whispers posted', value: String(MOCK_USER.whisperCount) },
+    { Icon: HiMail,       label: 'Email',   value: user.email           },
+    { Icon: HiBadgeCheck, label: 'Role',    value: user.role            },
+    { Icon: HiCalendar,   label: 'User ID', value: `#${user.id}`        },
   ]
+
+  const handleLogout = () => {
+    logout()
+    navigate('/', { replace: true })
+  }
 
   return (
     <div className="page-container animate-fade-in">
@@ -50,12 +59,11 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Name + badge */}
+          {/* Name + role badge */}
           <div className="flex flex-col items-center gap-2 text-center">
-            <h2 className="text-white text-2xl font-bold">{MOCK_USER.anonymousName}</h2>
+            <h2 className="text-white text-2xl font-bold">{user.anonymousName}</h2>
             <span className="badge-unseen">
-              <HiUser size={11} />
-              {MOCK_USER.role}
+              <HiUser size={11} /> {user.role}
             </span>
             <p className="text-white/30 text-xs mt-0.5">
               This is your anonymous alias — it is the only name others see.
@@ -78,7 +86,7 @@ export default function ProfilePage() {
             ))}
           </div>
 
-          {/* Logout button */}
+          {/* Logout */}
           <button
             className="w-full btn-ghost text-red-400/80 border-red-500/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/40"
             onClick={() => setShowLogout(true)}
@@ -95,17 +103,9 @@ export default function ProfilePage() {
             Are you sure you want to sign out? You will need to log in again with your school Google account.
           </p>
           <div className="flex gap-3">
-            <button className="btn-ghost flex-1" onClick={() => setShowLogout(false)}>
-              Cancel
-            </button>
-            <button
-              className="flex-1 btn-danger py-2.5 rounded-xl font-semibold"
-              onClick={() => {
-                localStorage.removeItem('whisperbox_token')
-                window.location.href = '/'
-              }}
-            >
-              Sign out
+            <button className="btn-ghost flex-1" onClick={() => setShowLogout(false)}>Cancel</button>
+            <button className="flex-1 btn-danger py-2.5 rounded-xl font-semibold" onClick={handleLogout}>
+              <HiLogout size={15} /> Sign out
             </button>
           </div>
         </div>
