@@ -1,106 +1,142 @@
 @import "tailwindcss";
 
-/* ── Dark mode: apply class="dark" on <html> ─────────────────────────── */
-@custom-variant dark (&:where(.dark, .dark *));
+/*
+  Dark mode is always active.
+  The <html class="dark"> in index.html handles this permanently.
+  No @custom-variant or @apply dark needed in Tailwind v4.
+*/
 
-/* ── Base layer ─────────────────────────────────────────────────────────── */
+/* ── Base ────────────────────────────────────────────────────────────────── */
 @layer base {
-  html {
-    @apply dark; /* default to dark mode */
-  }
-
   body {
-    @apply bg-gray-950 text-white antialiased;
+    @apply bg-slate-950 text-white antialiased;
     font-family: 'Inter', system-ui, sans-serif;
   }
 
-  * {
-    @apply box-border;
-  }
+  * { @apply box-border; }
 
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    @apply bg-gray-900;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    @apply bg-purple-700 rounded-full;
-  }
+  /* Custom scrollbar */
+  ::-webkit-scrollbar        { width: 5px; }
+  ::-webkit-scrollbar-track  { @apply bg-slate-900; }
+  ::-webkit-scrollbar-thumb  { @apply bg-sky-700 rounded-full; }
 }
 
-/* ── Reusable component utilities ───────────────────────────────────────── */
+/* ── Reusable design tokens ──────────────────────────────────────────────── */
 @layer components {
-  /* Glassmorphism card */
+
+  /* Glass card */
   .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl;
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl;
   }
 
-  /* Gradient text */
+  /* Elevated glass (modals) */
+  .glass-elevated {
+    @apply bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl
+           shadow-2xl shadow-black/40;
+  }
+
+  /* Gradient text — sky → indigo */
   .gradient-text {
-    @apply bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent;
   }
 
-  /* Primary button */
+  /* Primary CTA button */
   .btn-primary {
-    @apply bg-gradient-to-r from-purple-600 to-indigo-600
-           hover:from-purple-500 hover:to-indigo-500
+    @apply inline-flex items-center justify-center gap-2
+           bg-gradient-to-r from-sky-500 to-indigo-500
+           hover:from-sky-400 hover:to-indigo-400
            text-white font-semibold px-6 py-2.5 rounded-xl
-           transition-all duration-200 hover:shadow-lg hover:shadow-purple-500/25
-           active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+           transition-all duration-200
+           hover:shadow-lg hover:shadow-sky-500/30
+           active:scale-95 cursor-pointer
+           disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
-  /* Secondary / ghost button */
+  /* Ghost / outline button */
   .btn-ghost {
-    @apply border border-white/20 text-white/80 hover:bg-white/10
+    @apply inline-flex items-center justify-center gap-2
+           border border-white/20 text-white/70
+           hover:bg-white/10 hover:text-white hover:border-white/30
            px-6 py-2.5 rounded-xl transition-all duration-200
-           active:scale-95;
+           active:scale-95 cursor-pointer;
   }
 
-  /* Input field */
+  /* Danger button */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2
+           bg-red-500/10 border border-red-500/30 text-red-400
+           hover:bg-red-500/20 hover:border-red-400
+           px-4 py-2 rounded-xl transition-all duration-200
+           active:scale-95 cursor-pointer text-sm font-medium;
+  }
+
+  /* Success button */
+  .btn-success {
+    @apply inline-flex items-center justify-center gap-2
+           bg-emerald-500/10 border border-emerald-500/30 text-emerald-400
+           hover:bg-emerald-500/20 hover:border-emerald-400
+           px-4 py-2 rounded-xl transition-all duration-200
+           active:scale-95 cursor-pointer text-sm font-medium;
+  }
+
+  /* Input / textarea */
   .input-field {
     @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3
-           text-white placeholder-white/30 outline-none
-           focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20
-           transition-all duration-200;
+           text-white placeholder-white/25 outline-none
+           focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20
+           transition-all duration-200 text-sm;
   }
 
-  /* Status badge */
+  /* Status badges */
   .badge-seen {
     @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
-           bg-green-500/20 text-green-400 border border-green-500/30;
+           bg-emerald-500/10 text-emerald-400 border border-emerald-500/25;
   }
-
   .badge-unseen {
     @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
-           bg-purple-500/20 text-purple-400 border border-purple-500/30;
+           bg-sky-500/10 text-sky-400 border border-sky-500/25;
+  }
+  .badge-admin {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium
+           bg-violet-500/10 text-violet-400 border border-violet-500/25;
   }
 
-  /* Section container */
+  /* Page container */
   .page-container {
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
   }
+
+  /* Section heading */
+  .page-title {
+    @apply bg-gradient-to-r from-sky-400 to-indigo-400 bg-clip-text text-transparent
+           text-3xl font-bold tracking-tight;
+  }
+
+  /* Table cells */
+  .table-header-cell {
+    @apply text-white/40 text-xs uppercase tracking-wider font-medium text-left px-5 py-4;
+  }
+  .table-body-cell {
+    @apply px-5 py-4 text-sm text-white/70;
+  }
 }
 
-/* ── Animations ─────────────────────────────────────────────────────────── */
+/* ── Utility animations ──────────────────────────────────────────────────── */
 @layer utilities {
-  .animate-fade-in {
-    animation: fadeIn 0.4s ease-in-out;
-  }
-
-  .animate-slide-up {
-    animation: slideUp 0.4s ease-out;
-  }
+  .animate-fade-in  { animation: fadeIn  0.35s ease-out; }
+  .animate-slide-up { animation: slideUp 0.35s ease-out; }
+  .animate-scale-in { animation: scaleIn 0.2s ease-out;  }
 }
 
-@keyframes fadeIn {
+@keyframes fadeIn  {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1);    }
 }
