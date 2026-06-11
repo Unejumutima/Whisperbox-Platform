@@ -16,8 +16,14 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 
 /**
- * Custom OAuth2 User Service
- * Handles user authentication and registration through Google OAuth2
+ * CustomOAuth2UserService
+ *
+ * Called by Spring Security after Google successfully authenticates a user.
+ * Responsibilities:
+ *   1. Validate the email domain (school restriction)
+ *   2. Detect the hardcoded admin email → assign ADMIN role, auto-approve
+ *   3. Create new student accounts with anonymousName and approved = false
+ *   4. Update lastLoginAt for returning users
  */
 @Service
 @RequiredArgsConstructor
@@ -29,29 +35,35 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     @Value("${app.allowed.domain}")
     private String allowedDomain;
 
+    // The one hardcoded admin — identified purely by email address.
+    // Simple and easy to explain during an academic presentation.
+    @Value("${app.admin.email}")
+    private String adminEmail;
+
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
-        // Get user info from Google
+
+        // 1. Let Google do its job and return the authenticated user's info
         OAuth2User oAuth2User = super.loadUser(userRequest);
 
-        // Extract user details
-        String email = oAuth2User.getAttribute("email");
-        String name = oAuth2User.getAttribute("name");
+        // 2. Extract fields from Google's response
+        String email    = oAuth2User.getAttribute("email");
+        String fullName = oAuth2User.getAttribute("name");
         String googleId = oAuth2User.getAttribute("sub");
 
-        // Validate email domain (school restriction)
+        // 3. Validate email is not null and belongs to the allowed domain
         if (email == null || !email.endsWith(allowedDomain)) {
             throw new OAuth2AuthenticationException(
                     new OAuth2Error("invalid_domain"),
-                    "Only students from " + allowedDomain + " can access this platform"
+                    "Only accounts from " + allowedDomain + " can access this platform."
             );
         }
 
-        // Check if user already exists, otherwise create new user
+        // 4. Find existing user or create a new one
         User user = userRepository.findByEmail(email)
-                .orElseGet(() -> createNewUser(email, name, googleId));
+                .orElseGet(() -> createNewUser(email, fullName, googleId));
 
-        // Update last login time
+        // 5. Always refresh the last login timestamp
         user.setLastLoginAt(LocalDateTime.now());
         userRepository.save(user);
 
@@ -59,17 +71,22 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     }
 
     /**
-     * Create a new user with anonymous identity.
-     * approved = false by default — admin must approve before they can use the platform.
+     * Creates a brand-new user on their very first login.
+     *
+     * Admin rule:   email matches adminEmail → ADMIN role, approved = true, no anonymousName needed
+     * Student rule: all others → STUDENT role, approved = false, anonymousName generated
      */
-    private User createNewUser(String email, String name, String googleId) {
+    private User createNewUser(String email, String fullName, String googleId) {
+
+        boolean isAdmin = email.equalsIgnoreCase(adminEmail);
+
         User user = User.builder()
                 .email(email)
-                .fullName(name)
+                .fullName(fullName)
                 .googleId(googleId)
-                .role(Role.STUDENT)
-                .anonymousName(anonymousNameGenerator.generate())
-                .approved(false)   // requires admin approval before access is granted
+                .role(isAdmin ? Role.ADMIN : Role.STUDENT)
+                .approved(isAdmin)  // admin is auto-approved; students need manual approval
+                .anonymousName(isAdmin ? null : anonymousNameGenerator.generate())
                 .registeredAt(LocalDateTime.now())
                 .lastLoginAt(LocalDateTime.now())
                 .build();

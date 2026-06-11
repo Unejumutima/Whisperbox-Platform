@@ -6,15 +6,18 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * DTO for user information (public, non-sensitive data)
+ * DTO returned by GET /api/auth/me
+ *
+ * anonymousName is nullable — admin users do not have one.
+ * The frontend must handle null gracefully (show "Admin" as fallback).
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserInfoDTO {
-    private Long id;
+    private Long   id;
     private String email;
-    private String anonymousName;
+    private String anonymousName;  // null for ADMIN, always set for STUDENT
     private String role;
 }

@@ -1,30 +1,48 @@
 import { useState } from 'react'
 import { NavLink, Link } from 'react-router-dom'
-import { HiMenuAlt3, HiX } from 'react-icons/hi'
+import { HiMenuAlt3, HiX, HiShieldCheck } from 'react-icons/hi'
 import clsx from 'clsx'
 
 interface NavbarProps {
-  anonymousName?: string
+  anonymousName?: string | null
+  role?: string | null
 }
 
-const navLinks = [
-  { label: 'Feed',    to: '/feed'    },
-  { label: 'Create',  to: '/create'  },
-  { label: 'Profile', to: '/profile' },
+// ── Role-specific top nav links ───────────────────────────────────────────
+const studentLinks = [
+  { label: 'Feed',         to: '/feed'         },
+  { label: 'Create',       to: '/create'        },
+  { label: 'My Whispers',  to: '/my-whispers'   },
+  { label: 'Profile',      to: '/profile'       },
+]
+
+const adminLinks = [
+  { label: 'All Whispers', to: '/admin'        },
+  { label: 'Users',        to: '/admin/users'  },
+  { label: 'Profile',      to: '/profile'      },
 ]
 
 /**
- * Fixed top navigation bar.
- * Shows logo, nav links, and user avatar on desktop.
- * Collapses to hamburger menu on mobile.
+ * Navbar — fixed top bar, role-aware.
+ *
+ * Students see: Feed | Create | My Whispers | Profile
+ * Admins see:   All Whispers | Users | Profile
+ *
+ * Avatar: violet shield for admin, sky initial for student.
  */
-export default function Navbar({ anonymousName = 'W' }: NavbarProps) {
+export default function Navbar({ anonymousName, role }: NavbarProps) {
   const [open, setOpen] = useState(false)
-  const initial = anonymousName.charAt(0).toUpperCase()
+  const isAdmin  = role === 'ADMIN'
+  const links    = isAdmin ? adminLinks : studentLinks
+
+  // Safe initial calculation
+  const initial = anonymousName
+    ? anonymousName.charAt(0).toUpperCase()
+    : isAdmin ? 'A' : 'W'
 
   const linkCls = ({ isActive }: { isActive: boolean }) =>
     clsx('text-sm font-medium transition-colors duration-200 px-1 py-0.5', {
-      'text-sky-400':              isActive,
+      'text-sky-400':                   isActive,
       'text-white/50 hover:text-white': !isActive,
     })
 
@@ -37,14 +55,19 @@ export default function Navbar({ anonymousName = 'W' }: NavbarProps) {
           ✦ Whisperbox
         </Link>
 
-        {/* Desktop nav */}
+        {/* Desktop nav — role-specific links */}
         <div className="hidden md:flex items-center gap-7">
-          {navLinks.map((l) => (
+          {links.map((l) => (
             <NavLink key={l.to} to={l.to} className={linkCls}>{l.label}</NavLink>
           ))}
+
           {/* Avatar */}
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold select-none">
-            {initial}
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold select-none ${
+            isAdmin
+              ? 'bg-gradient-to-br from-violet-500 to-indigo-600'
+              : 'bg-gradient-to-br from-sky-500 to-indigo-500'
+          }`}>
+            {isAdmin ? <HiShieldCheck size={16} /> : initial}
           </div>
         </div>
 
@@ -58,10 +81,10 @@ export default function Navbar({ anonymousName = 'W' }: NavbarProps) {
         </button>
       </div>
 
-      {/* Mobile dropdown */}
+      {/* Mobile dropdown — same role-specific links */}
       {open && (
         <div className="md:hidden bg-slate-950/95 backdrop-blur-xl border-t border-white/10 px-4 py-3 flex flex-col gap-1 animate-slide-up">
-          {navLinks.map((l) => (
+          {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}

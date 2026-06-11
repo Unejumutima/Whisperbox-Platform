@@ -1,26 +1,38 @@
-import { useState, useMemo } from 'react'
-import { HiChatAlt2, HiEye, HiShieldCheck, HiTrash, HiExclamation, HiRefresh } from 'react-icons/hi'
+import { useState, useMemo, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  HiChatAlt2, HiEye, HiShieldCheck, HiTrash,
+  HiExclamation, HiRefresh, HiUserGroup, HiClock,
+} from 'react-icons/hi'
 import toast          from 'react-hot-toast'
 import Pagination     from '../components/ui/Pagination'
 import SearchBar      from '../components/ui/SearchBar'
 import Modal          from '../components/ui/Modal'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 import EmptyState     from '../components/ui/EmptyState'
-import { useWhispers } from '../hooks/useWhispers'
-import { markAsSeen, deleteWhisper } from '../services/whisperService'
-import type { Whisper } from '../services/whisperService'
-import { formatDate } from '../utils/formatDate'
+import { useWhispers }                    from '../hooks/useWhispers'
+import { markAsSeen, deleteWhisper }      from '../services/whisperService'
+import { getPendingCount }                from '../services/userService'
+import type { Whisper }                   from '../services/whisperService'
+import { formatDate }                     from '../utils/formatDate'
 
 const PAGE_SIZE = 8
 
 /**
- * Admin page — visible only to ADMIN users (enforced by ProtectedRoute).
- * Fetches real whispers, supports Mark Seen and Delete with confirmation modal.
+ * AdminPage — overview dashboard for the admin.
+ *
+ * Shows:
+ * - Stats: total whispers, unseen whispers, pending approvals
+ * - Quick navigation card to User Management
+ * - Full searchable/paginated whisper table with Mark Seen and Delete
  */
 export default function AdminPage() {
-  const [page,     setPage]     = useState(0)
-  const [query,    setQuery]    = useState('')
-  const [deleteId, setDeleteId] = useState<number | null>(null)
+  const navigate = useNavigate()
+
+  const [page,          setPage]         = useState(0)
+  const [query,         setQuery]        = useState('')
+  const [deleteId,      setDeleteId]     = useState<number | null>(null)
+  const [pendingCount,  setPendingCount] = useState<number | null>(null)
 
   const { whispers, pageInfo, loading, error, refetch } = useWhispers({
     page,
@@ -28,6 +40,13 @@ export default function AdminPage() {
     sortBy:    'id',
     direction: 'desc',
   })
+
+  // Fetch pending user count for the stat card
+  useEffect(() => {
+    getPendingCount()
+      .then(setPendingCount)
+      .catch(() => setPendingCount(0))
+  }, [])
 
   // Client-side search on current page
   const filtered = useMemo(() => {
@@ -71,15 +90,35 @@ export default function AdminPage() {
     }
   }
 
+  // ── Stat cards config ─────────────────────────────────────────────────────
   const stats = [
-    { label: 'Total Whispers', value: total,  Icon: HiChatAlt2, color: 'text-sky-400',    bg: 'bg-sky-500/10'    },
-    { label: 'Unseen',         value: unseen, Icon: HiEye,      color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
+    {
+      label: 'Total Whispers',
+      value: total,
+      Icon:  HiChatAlt2,
+      color: 'text-sky-400',
+      bg:    'bg-sky-500/10',
+    },
+    {
+      label: 'Unseen Whispers',
+      value: unseen,
+      Icon:  HiEye,
+      color: 'text-indigo-400',
+      bg:    'bg-indigo-500/10',
+    },
+    {
+      label: 'Pending Approvals',
+      value: pendingCount ?? '…',
+      Icon:  HiUserGroup,
+      color: pendingCount ? 'text-amber-400' : 'text-white/40',
+      bg:    pendingCount ? 'bg-amber-500/10' : 'bg-white/5',
+    },
   ]
 
   return (
     <div className="page-container animate-fade-in space-y-8">
 
-      {/* Header */}
+      {/* ── Header ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="bg-violet-500/20 rounded-xl p-2.5">
@@ -87,24 +126,23 @@ export default function AdminPage() {
           </div>
           <div>
             <h1 className="page-title">Admin Panel</h1>
-            <p className="text-white/40 text-sm">Manage all whispers on the platform.</p>
+            <p className="text-white/40 text-sm">Manage whispers and users on the platform.</p>
           </div>
         </div>
-        {/* Manual refresh */}
         <button onClick={refetch} className="btn-ghost px-3 py-2 text-sm" title="Refresh">
           <HiRefresh size={16} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      {/* ── Stat cards ───────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {stats.map(({ label, value, Icon, color, bg }) => (
-          <div key={label} className="glass p-6 flex items-center gap-4">
+          <div key={label} className="glass p-6 flex items-center gap-4 hover:border-sky-500/20 transition-all duration-200">
             <div className={`${bg} rounded-xl p-3 shrink-0`}>
               <Icon size={22} className={color} />
             </div>
             <div>
-              {loading
+              {loading && label !== 'Pending Approvals'
                 ? <div className="w-10 h-8 bg-white/10 rounded-lg animate-pulse" />
                 : <p className="text-3xl font-bold text-white">{value}</p>
               }
@@ -114,9 +152,39 @@ export default function AdminPage() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="max-w-sm">
-        <SearchBar value={query} onChange={handleSearch} placeholder="Search whispers…" />
+      {/* ── Quick action: User Management ────────────────────────────── */}
+      <div
+        onClick={() => navigate('/admin/users')}
+        className="glass p-5 flex items-center gap-4 cursor-pointer hover:border-sky-500/25 hover:bg-white/5 transition-all duration-200 group"
+      >
+        <div className="bg-sky-500/10 rounded-xl p-3 shrink-0">
+          <HiUserGroup size={22} className="text-sky-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-white font-semibold text-sm group-hover:text-sky-100 transition-colors">
+            User Management
+          </p>
+          <p className="text-white/40 text-xs mt-0.5">
+            Review and approve new user registrations.
+            {pendingCount ? (
+              <span className="ml-2 badge-unseen py-0.5">{pendingCount} pending</span>
+            ) : null}
+          </p>
+        </div>
+        <span className="text-white/20 text-lg group-hover:text-white/50 transition-colors">→</span>
+      </div>
+
+      {/* ── Whisper management section ────────────────────────────────── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <HiClock size={16} className="text-white/40" />
+          <h2 className="text-white font-semibold text-sm">Whisper Management</h2>
+        </div>
+
+        {/* Search */}
+        <div className="max-w-sm">
+          <SearchBar value={query} onChange={handleSearch} placeholder="Search by title or alias…" />
+        </div>
       </div>
 
       {/* Loading */}
@@ -128,17 +196,21 @@ export default function AdminPage() {
 
       {/* Error */}
       {!loading && error && (
-        <div className="glass border border-red-500/20 px-5 py-4 rounded-xl text-red-400 text-sm">
-          {error}
+        <div className="glass border border-red-500/20 px-5 py-4 rounded-xl">
+          <p className="text-red-400 text-sm">{error}</p>
         </div>
       )}
 
       {/* Empty */}
       {!loading && !error && filtered.length === 0 && (
-        <EmptyState title="No whispers found" description={query ? 'Try a different search.' : 'No whispers have been posted yet.'} />
+        <EmptyState
+          Icon={HiChatAlt2}
+          title="No whispers found"
+          description={query ? 'Try a different search.' : 'No whispers have been posted yet.'}
+        />
       )}
 
-      {/* Table */}
+      {/* ── Whisper table ─────────────────────────────────────────────── */}
       {!loading && !error && filtered.length > 0 && (
         <div className="glass overflow-hidden">
           <div className="overflow-x-auto">
@@ -155,7 +227,10 @@ export default function AdminPage() {
               </thead>
               <tbody>
                 {filtered.map((w: Whisper) => (
-                  <tr key={w.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                  <tr
+                    key={w.id}
+                    className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                  >
                     <td className="table-body-cell text-white/30">#{w.id}</td>
 
                     <td className="table-body-cell">
@@ -163,7 +238,9 @@ export default function AdminPage() {
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
                           {(w.anonymousName ?? 'A').charAt(0).toUpperCase()}
                         </div>
-                        <span className="text-sky-400 text-sm">{w.anonymousName ?? 'Anonymous'}</span>
+                        <span className="text-sky-400 text-sm">
+                          {w.anonymousName ?? 'Anonymous'}
+                        </span>
                       </div>
                     </td>
 
@@ -213,7 +290,7 @@ export default function AdminPage() {
         <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
       )}
 
-      {/* Delete confirmation modal */}
+      {/* ── Delete confirmation modal ─────────────────────────────────── */}
       <Modal isOpen={deleteId !== null} onClose={() => setDeleteId(null)} title="Delete Whisper">
         <div className="flex flex-col gap-5">
           <div className="flex items-start gap-3">
@@ -228,7 +305,10 @@ export default function AdminPage() {
             <button className="btn-ghost flex-1" onClick={() => setDeleteId(null)}>
               Cancel
             </button>
-            <button className="flex-1 btn-danger py-2.5 rounded-xl font-semibold" onClick={handleDelete}>
+            <button
+              className="flex-1 btn-danger py-2.5 rounded-xl font-semibold"
+              onClick={handleDelete}
+            >
               <HiTrash size={15} /> Delete permanently
             </button>
           </div>

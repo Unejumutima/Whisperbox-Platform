@@ -5,16 +5,18 @@ import { useAuth } from '../../hooks/useAuth'
 
 /**
  * AppLayout — shared shell for all authenticated pages.
- *
- * Reads the real user from AuthContext so Navbar and Sidebar
- * show the actual anonymous name, email, and role.
+ * Passes real user data from AuthContext to Navbar and Sidebar.
+ * Both components handle null anonymousName safely (admin case).
  */
 export default function AppLayout() {
   const { user } = useAuth()
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
-      <Navbar anonymousName={user?.anonymousName} />
+      <Navbar
+        anonymousName={user?.anonymousName}
+        role={user?.role}
+      />
 
       <div className="flex flex-1 pt-16">
         <Sidebar

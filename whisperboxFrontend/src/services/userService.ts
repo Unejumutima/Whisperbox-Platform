@@ -2,31 +2,56 @@ import api from './axiosInstance'
 import type { UserInfo } from './authService'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// userService — user-focused API calls.
-//
-// Separation of concerns:
-//   authService  → authentication flow (token, login, logout, session check)
-//   userService  → user profile and user-related data queries
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Matches PendingUserDTO returned by GET /api/admin/pending-users */
+export interface PendingUser {
+  id: number
+  email: string
+  fullName: string | null
+  anonymousName: string | null
+  registeredAt: unknown   // LocalDateTime array from Spring Boot
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// General user queries
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Fetch the current user's own profile — GET /api/auth/me */
+export const getMyProfile = (): Promise<UserInfo> =>
+  api.get<UserInfo>('/api/auth/me').then((res) => res.data)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin — user management  (all require ADMIN role)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Fetch a user's public profile by their ID.
- *
- * Note: The backend does not currently expose a GET /api/users/:id endpoint.
- * This function is a clean placeholder that follows the same pattern as the
- * other services and will work as soon as the endpoint is added.
- *
- * Endpoint: GET /api/users/:id  (to be added to backend if needed)
+ * Returns all users whose approved = false.
+ * GET /api/admin/pending-users
  */
-export const getUserById = (id: number): Promise<UserInfo> =>
-  api.get<UserInfo>(`/api/users/${id}`).then((res) => res.data)
+export const getPendingUsers = (): Promise<PendingUser[]> =>
+  api.get<PendingUser[]>('/api/admin/pending-users').then((res) => res.data)
 
 /**
- * Fetch the current user's own profile.
- * This re-exports the same GET /api/auth/me call but lives in userService
- * so pages that only need "my profile" data can import from a single place.
- *
- * Endpoint: GET /api/auth/me
+ * Returns the number of pending users — useful for badge counters.
+ * GET /api/admin/pending-users/count
  */
-export const getMyProfile = (): Promise<UserInfo> =>
-  api.get<UserInfo>('/api/auth/me').then((res) => res.data)
+export const getPendingCount = (): Promise<number> =>
+  api
+    .get<{ pending: number }>('/api/admin/pending-users/count')
+    .then((res) => res.data.pending)
+
+/**
+ * Approves a user — sets approved = true.
+ * PUT /api/admin/users/:id/approve
+ */
+export const approveUser = (id: number): Promise<void> =>
+  api.put(`/api/admin/users/${id}/approve`).then(() => undefined)
+
+/**
+ * Rejects and removes a user permanently.
+ * PUT /api/admin/users/:id/reject
+ */
+export const rejectUser = (id: number): Promise<void> =>
+  api.put(`/api/admin/users/${id}/reject`).then(() => undefined)

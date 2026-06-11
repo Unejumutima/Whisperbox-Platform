@@ -9,7 +9,7 @@ import { TOKEN_KEY } from '../utils/constants'
 export interface UserInfo {
   id: number
   email: string
-  anonymousName: string
+  anonymousName: string | null  // null for ADMIN users — always handle this in UI
   role: 'STUDENT' | 'ADMIN'
 }
 

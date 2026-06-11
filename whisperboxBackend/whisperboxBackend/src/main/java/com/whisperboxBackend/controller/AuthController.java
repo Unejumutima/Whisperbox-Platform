@@ -1,6 +1,5 @@
 package com.whisperboxBackend.controller;
 
-import com.whisperboxBackend.dto.AuthResponseDTO;
 import com.whisperboxBackend.dto.UserInfoDTO;
 import com.whisperboxBackend.entity.User;
 import com.whisperboxBackend.repository.UserRepository;
@@ -13,8 +12,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Authentication Controller
- * Provides endpoints for authentication-related operations
+ * AuthController — provides user identity endpoints.
+ *
+ * GET /api/auth/me     → returns the logged-in user's profile (safe for admin + student)
+ * GET /api/auth/status → simple heartbeat to check JWT validity
  */
 @RestController
 @RequestMapping("/api/auth")
@@ -24,11 +25,8 @@ public class AuthController {
     private final UserRepository userRepository;
 
     /**
-     * Get current authenticated user's information
-     * Requires JWT token in Authorization header
-     * 
-     * Example: GET /api/auth/me
-     * Header: Authorization: Bearer <jwt-token>
+     * Returns the current user's profile.
+     * anonymousName will be null for ADMIN — the frontend handles this gracefully.
      */
     @GetMapping("/me")
     public ResponseEntity<UserInfoDTO> getCurrentUser(
@@ -36,20 +34,17 @@ public class AuthController {
     ) {
         User user = userDetails.getUser();
 
-        UserInfoDTO userInfo = UserInfoDTO.builder()
+        UserInfoDTO dto = UserInfoDTO.builder()
                 .id(user.getId())
                 .email(user.getEmail())
-                .anonymousName(user.getAnonymousName())
+                .anonymousName(user.getAnonymousName())  // null for ADMIN — that's fine
                 .role(user.getRole().name())
                 .build();
 
-        return ResponseEntity.ok(userInfo);
+        return ResponseEntity.ok(dto);
     }
 
-    /**
-     * Check authentication status
-     * Returns 200 if authenticated, 401 if not
-     */
+    /** Simple ping — returns 200 if JWT is valid, 401 if not. */
     @GetMapping("/status")
     public ResponseEntity<String> checkStatus() {
         return ResponseEntity.ok("Authenticated");

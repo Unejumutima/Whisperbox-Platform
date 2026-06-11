@@ -1,25 +1,44 @@
 import { useNavigate } from 'react-router-dom'
 import { HiChatAlt2, HiEye, HiPencilAlt, HiRss, HiTrendingUp } from 'react-icons/hi'
-import { useAuth }      from '../hooks/useAuth'
-import { useWhispers }  from '../hooks/useWhispers'
-import WhisperCard      from '../components/ui/WhisperCard'
-import LoadingSpinner   from '../components/ui/LoadingSpinner'
+import toast           from 'react-hot-toast'
+import { useAuth }     from '../hooks/useAuth'
+import { useWhispers } from '../hooks/useWhispers'
+import WhisperCard     from '../components/ui/WhisperCard'
+import LoadingSpinner  from '../components/ui/LoadingSpinner'
 
-/**
- * Dashboard — first page after login.
- * Fetches real stats and a preview of the latest unseen whispers.
- */
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  // Fetch first page of whispers for stats + preview
+  const isAdmin = user?.role === 'ADMIN'
+
+  /**
+   * Admins cannot post whispers — they manage the platform.
+   * If admin clicks any "create whisper" button, show a toast and stop.
+   */
+  const handleCreateWhisper = () => {
+    if (isAdmin) {
+      toast('Admins cannot post whispers. You manage the platform, not participate.', {
+        icon: '🛡️',
+        style: {
+          background: '#1e1b4b',
+          color: '#e0e7ff',
+          border: '1px solid rgba(139, 92, 246, 0.4)',
+          borderRadius: '12px',
+          fontSize: '14px',
+        },
+      })
+      return
+    }
+    navigate('/create')
+  }
+
+  // Fetch whispers for stats + recent preview
   const { whispers, pageInfo, loading, error } = useWhispers({ size: 20, direction: 'desc' })
 
-  // Derive stats from the fetched data
   const totalAll  = pageInfo?.totalElements ?? 0
   const unseenAll = whispers.filter((w) => w.status === 'NOT_SEEN').length
-  // "Created today" — whispers whose createdAt date matches today
+
   const today = new Date().toDateString()
   const todayCount = whispers.filter((w) => {
     if (!w.createdAt || !Array.isArray(w.createdAt)) return false
@@ -28,12 +47,11 @@ export default function DashboardPage() {
   }).length
 
   const stats = [
-    { label: 'Total Whispers', value: totalAll,   Icon: HiChatAlt2, color: 'text-sky-400',    bg: 'bg-sky-500/10'    },
-    { label: 'Unseen',         value: unseenAll,  Icon: HiEye,      color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
+    { label: 'Total Whispers', value: totalAll,   Icon: HiChatAlt2,  color: 'text-sky-400',    bg: 'bg-sky-500/10'    },
+    { label: 'Unseen',         value: unseenAll,  Icon: HiEye,       color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
     { label: 'Created Today',  value: todayCount, Icon: HiPencilAlt, color: 'text-violet-400', bg: 'bg-violet-500/10' },
   ]
 
-  // Show up to 3 most recent unseen whispers in the preview section
   const recentUnseen = whispers.filter((w) => w.status === 'NOT_SEEN').slice(0, 3)
 
   return (
@@ -46,12 +64,17 @@ export default function DashboardPage() {
           <p className="text-white/50 mt-1.5 text-sm">
             Welcome back,{' '}
             <span className="text-sky-400 font-medium">
-              {user?.anonymousName ?? '…'}
+              {isAdmin ? 'Admin' : (user?.anonymousName ?? '…')}
             </span>{' '}
             👋
           </p>
         </div>
-        <button className="btn-primary self-start sm:self-auto" onClick={() => navigate('/create')}>
+
+        {/* "+ New Whisper" button — both roles see it; admin gets toast instead */}
+        <button
+          className="btn-primary self-start sm:self-auto"
+          onClick={handleCreateWhisper}
+        >
           <HiPencilAlt size={16} /> New Whisper
         </button>
       </div>
@@ -74,12 +97,14 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* ── Quick actions ──────────────────────────────────────────── */}
+      {/* ── Quick Actions ──────────────────────────────────────────── */}
       <div>
         <h2 className="text-white font-semibold mb-4 flex items-center gap-2">
           <HiTrendingUp size={18} className="text-sky-400" /> Quick Actions
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+          {/* Browse Feed */}
           <div className="glass p-6 flex flex-col gap-4 hover:border-sky-500/20 transition-all duration-200">
             <div className="flex items-start gap-3">
               <div className="bg-sky-500/10 rounded-xl p-2.5 shrink-0">
@@ -92,11 +117,15 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-            <button className="btn-ghost self-start text-sm px-4 py-2" onClick={() => navigate('/feed')}>
-              Go to Feed →
+            <button
+              className="btn-ghost self-start text-sm px-4 py-2"
+              onClick={() => navigate(isAdmin ? '/admin' : '/feed')}
+            >
+              {isAdmin ? 'Go to Admin Panel →' : 'Go to Feed →'}
             </button>
           </div>
 
+          {/* Create Whisper — admin sees the toast; student navigates */}
           <div className="glass p-6 flex flex-col gap-4 hover:border-sky-500/20 transition-all duration-200">
             <div className="flex items-start gap-3">
               <div className="bg-indigo-500/10 rounded-xl p-2.5 shrink-0">
@@ -109,7 +138,10 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-            <button className="btn-primary self-start text-sm px-4 py-2" onClick={() => navigate('/create')}>
+            <button
+              className="btn-primary self-start text-sm px-4 py-2"
+              onClick={handleCreateWhisper}
+            >
               Create Whisper
             </button>
           </div>
@@ -122,26 +154,22 @@ export default function DashboardPage() {
           <HiEye size={18} className="text-sky-400" /> New Whispers
         </h2>
 
-        {/* Loading state */}
         {loading && (
           <div className="flex justify-center py-10">
             <LoadingSpinner label="Loading whispers…" />
           </div>
         )}
 
-        {/* Error state */}
         {!loading && error && (
           <div className="glass border border-red-500/20 p-5 rounded-xl text-red-400 text-sm">
             {error}
           </div>
         )}
 
-        {/* Empty state */}
         {!loading && !error && recentUnseen.length === 0 && (
           <p className="text-white/30 text-sm">No new whispers right now.</p>
         )}
 
-        {/* Whisper cards */}
         {!loading && !error && recentUnseen.length > 0 && (
           <>
             <div className="flex flex-col gap-3">
@@ -149,7 +177,7 @@ export default function DashboardPage() {
             </div>
             <button
               className="mt-4 text-sky-400 hover:text-sky-300 text-sm font-medium transition-colors"
-              onClick={() => navigate('/feed')}
+              onClick={() => navigate(isAdmin ? '/admin' : '/feed')}
             >
               View all whispers →
             </button>

@@ -1,30 +1,46 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 
-import { AuthProvider }      from './context/AuthContext'
-import ProtectedRoute        from './routes/ProtectedRoute'
-import AppLayout             from './components/layout/AppLayout'
+import { AuthProvider }   from './context/AuthContext'
+import ProtectedRoute     from './routes/ProtectedRoute'
+import AppLayout          from './components/layout/AppLayout'
 
-import LandingPage           from './pages/LandingPage'
-import AuthCallbackPage      from './pages/AuthCallbackPage'
-import DashboardPage         from './pages/DashboardPage'
-import FeedPage              from './pages/FeedPage'
-import CreateWhisperPage     from './pages/CreateWhisperPage'
-import ProfilePage           from './pages/ProfilePage'
-import AdminPage             from './pages/AdminPage'
+// Public
+import LandingPage        from './pages/LandingPage'
+import AuthCallbackPage   from './pages/AuthCallbackPage'
 
+// Shared (both roles)
+import DashboardPage      from './pages/DashboardPage'
+import ProfilePage        from './pages/ProfilePage'
+
+// Student-only
+import FeedPage           from './pages/FeedPage'
+import CreateWhisperPage  from './pages/CreateWhisperPage'
+import MyWhispersPage     from './pages/MyWhispersPage'
+
+// Admin-only
+import AdminPage          from './pages/AdminPage'
+import UserManagementPage from './pages/UserManagementPage'
+
+/**
+ * App — root routing configuration.
+ *
+ * Route groups:
+ *   Public         → no auth required
+ *   Student-only   → authenticated + blockedRole="ADMIN"
+ *   Admin-only     → authenticated + requiredRole="ADMIN"
+ *   Shared         → any authenticated user
+ */
 function App() {
   return (
-    // AuthProvider must wrap BrowserRouter so ProtectedRoute can read auth state
     <AuthProvider>
       <BrowserRouter>
-        {/* Global toast notifications */}
         <Toaster
           position="top-right"
           toastOptions={{
             style: {
-              background: '#0f172a',   // slate-900
-              color:      '#e0f2fe',   // sky-100
+              background: '#0f172a',
+              color:      '#e0f2fe',
               border:     '1px solid rgba(14, 165, 233, 0.25)',
               borderRadius: '12px',
               fontSize: '14px',
@@ -35,25 +51,32 @@ function App() {
         />
 
         <Routes>
-          {/* ── Public routes (no auth required) ─────────────────────── */}
+          {/* ── Public ────────────────────────────────────────────────── */}
           <Route path="/"              element={<LandingPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
-          {/* ── Authenticated routes — guarded by ProtectedRoute ──────── */}
-          {/* AppLayout provides Navbar + Sidebar + <Outlet /> */}
+          {/* ── Shared (any authenticated user) ──────────────────────── */}
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/feed"      element={<FeedPage />} />
-              <Route path="/create"    element={<CreateWhisperPage />} />
               <Route path="/profile"   element={<ProfilePage />} />
             </Route>
           </Route>
 
-          {/* ── Admin-only route ──────────────────────────────────────── */}
+          {/* ── Student-only (admin is blocked) ──────────────────────── */}
+          <Route element={<ProtectedRoute blockedRole="ADMIN" />}>
+            <Route element={<AppLayout />}>
+              <Route path="/feed"         element={<FeedPage />} />
+              <Route path="/create"       element={<CreateWhisperPage />} />
+              <Route path="/my-whispers"  element={<MyWhispersPage />} />
+            </Route>
+          </Route>
+
+          {/* ── Admin-only ────────────────────────────────────────────── */}
           <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
             <Route element={<AppLayout />}>
-              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/admin"       element={<AdminPage />} />
+              <Route path="/admin/users" element={<UserManagementPage />} />
             </Route>
           </Route>
         </Routes>
