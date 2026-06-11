@@ -15,12 +15,7 @@ const sortOptions = [
   { label: 'Oldest first', value: 'asc'  },
 ]
 
-/**
- * Feed page — fetches real whispers from the backend.
- *
- * Pagination is server-side (page/size params sent to backend).
- * Search is client-side against the current page — lightweight for academics.
- */
+
 export default function FeedPage() {
   const [page,      setPage]      = useState(0)
   const [direction, setDirection] = useState('desc')

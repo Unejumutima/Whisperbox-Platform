@@ -26,17 +26,6 @@ public class WhisperStatsScheduler {
 
     private final WhisperRepository whisperRepository;
 
-    // -------------------------------------------------------------------------
-    // SCHEDULED TASK: Daily Whisper Summary
-    // -------------------------------------------------------------------------
-    // cron = "0 0 8 * * *"  means: run every day at 08:00 AM
-    //
-    // Cron format:  second | minute | hour | day | month | weekday
-    //               0        0        8      *     *       *
-    //
-    // For academic testing, swap to fixedRate = 10000 (runs every 10 seconds)
-    // to see it fire immediately without waiting until 8 AM.
-    // -------------------------------------------------------------------------
     @Scheduled(cron = "0 0 8 * * *")
     // @Scheduled(fixedRate = 10000)  // ← uncomment this line for quick testing
     public void logDailyWhisperSummary() {

@@ -14,10 +14,7 @@ interface FormErrors {
   content?: string
 }
 
-/**
- * Create Whisper page.
- * Validates inputs, calls POST /api/whispers, shows toast on success/failure.
- */
+
 export default function CreateWhisperPage() {
   const navigate = useNavigate()
 

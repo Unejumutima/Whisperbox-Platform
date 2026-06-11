@@ -3,18 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import LoadingSpinner from '../components/ui/LoadingSpinner'
 
-/**
- * AuthCallbackPage
- *
- * Spring Boot redirects here after a successful Google OAuth2 login:
- *   http://localhost:5173/auth/callback?token=<JWT>
- *
- * This page:
- *   1. Reads ?token= from the URL query string.
- *   2. Calls login(token) from AuthContext — this saves the token AND fetches
- *      the user profile in one step.
- *   3. Redirects to /dashboard on success, or back to / on failure.
- */
+
 export default function AuthCallbackPage() {
   const navigate  = useNavigate()
   const { login } = useAuth()
