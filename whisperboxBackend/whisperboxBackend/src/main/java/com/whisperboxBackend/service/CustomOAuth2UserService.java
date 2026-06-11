@@ -59,7 +59,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     }
 
     /**
-     * Create a new user with anonymous identity
+     * Create a new user with anonymous identity.
+     * approved = false by default — admin must approve before they can use the platform.
      */
     private User createNewUser(String email, String name, String googleId) {
         User user = User.builder()
@@ -68,6 +69,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 .googleId(googleId)
                 .role(Role.STUDENT)
                 .anonymousName(anonymousNameGenerator.generate())
+                .approved(false)   // requires admin approval before access is granted
                 .registeredAt(LocalDateTime.now())
                 .lastLoginAt(LocalDateTime.now())
                 .build();

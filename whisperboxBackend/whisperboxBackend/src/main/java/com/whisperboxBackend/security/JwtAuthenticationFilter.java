@@ -1,6 +1,8 @@
 package com.whisperboxBackend.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.whisperboxBackend.entity.User;
+import com.whisperboxBackend.enums.Role;
 import com.whisperboxBackend.repository.UserRepository;
 import com.whisperboxBackend.util.JwtUtil;
 import jakarta.servlet.FilterChain;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * JWT Authentication Filter
@@ -52,6 +55,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                     // Validate token and authenticate user
                     if (user != null && jwtUtil.validateToken(token, email)) {
+
+                        // Approval check — ADMIN accounts are always allowed through.
+                        // STUDENT accounts must have approved = true.
+                        if (user.getRole() != Role.ADMIN && !user.isApproved()) {
+                            // Write a clear JSON error and stop the filter chain
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            String body = new ObjectMapper().writeValueAsString(
+                                Map.of("error", "Your account is waiting for administrator approval.")
+                            );
+                            response.getWriter().write(body);
+                            return; // do NOT continue the filter chain
+                        }
+
                         CustomUserDetails userDetails = new CustomUserDetails(user);
 
                         UsernamePasswordAuthenticationToken authentication =

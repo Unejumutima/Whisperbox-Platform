@@ -6,6 +6,7 @@ import com.whisperboxBackend.service.CustomOAuth2UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -27,6 +28,7 @@ import java.util.Arrays;
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity   // enables @PreAuthorize on controller methods
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -53,6 +55,9 @@ public class SecurityConfig {
                                 "/api/auth/**",
                                 "/error"
                         ).permitAll()
+
+                        // Admin endpoints — ADMIN role only (also enforced by @PreAuthorize)
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // All whisper endpoints require authentication
                         .requestMatchers("/api/whispers/**").authenticated()

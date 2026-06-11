@@ -31,6 +31,11 @@ public class User {
 
     private String anonymousName; // Random name for public display
 
+    // Account approval — false by default for new registrations.
+    // Admin must explicitly set this to true before the user can access the platform.
+    // ADMIN accounts are always considered approved regardless of this field.
+    private boolean approved;
+
     private LocalDateTime registeredAt;
 
     private LocalDateTime lastLoginAt;

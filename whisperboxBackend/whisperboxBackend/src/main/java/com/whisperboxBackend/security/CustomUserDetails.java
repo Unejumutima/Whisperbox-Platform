@@ -57,7 +57,12 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return true;
+        // ADMIN accounts are always active regardless of approved flag.
+        // STUDENT accounts require explicit admin approval.
+        if (user.getRole() == com.whisperboxBackend.enums.Role.ADMIN) {
+            return true;
+        }
+        return user.isApproved();
     }
 
     public Long getUserId() {
