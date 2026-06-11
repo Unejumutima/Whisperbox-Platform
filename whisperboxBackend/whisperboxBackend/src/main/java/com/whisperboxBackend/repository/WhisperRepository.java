@@ -9,7 +9,15 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 public interface WhisperRepository extends JpaRepository<Whisper, Long> {
+
+    // ── Used by "My Whispers" — fetch only whispers belonging to one user ─────
+    // Spring Data derives the SQL from the method name: createdBy.id = :userId
+    // Pageable handles pagination and sorting automatically.
+    Page<Whisper> findByCreatedById(Long userId, Pageable pageable);
 
     // -------------------------------------------------------------------------
     // QUERY 1: Find all whispers by status

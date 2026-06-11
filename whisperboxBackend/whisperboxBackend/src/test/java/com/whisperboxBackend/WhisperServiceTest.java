@@ -1,8 +1,11 @@
 package com.whisperboxBackend;
 
 import com.whisperboxBackend.dto.WhisperRequestDTO;
+import com.whisperboxBackend.entity.User;
 import com.whisperboxBackend.entity.Whisper;
+import com.whisperboxBackend.enums.Role;
 import com.whisperboxBackend.enums.WhisperStatus;
+import com.whisperboxBackend.repository.UserRepository;
 import com.whisperboxBackend.repository.WhisperRepository;
 import com.whisperboxBackend.service.WhisperService;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,18 +27,11 @@ import static org.mockito.Mockito.*;
 /**
  * Unit tests for WhisperService.
  *
- * KEY ANNOTATIONS:
+ * Uses JUnit 5 + Mockito.
+ * No real database is involved — repositories are mocked.
  *
- * @ExtendWith(MockitoExtension.class)
- *   Tells JUnit to use Mockito's extension so @Mock and @InjectMocks work.
- *
- * @Mock
- *   Creates a fake (mock) WhisperRepository. No real database is used.
- *   We control exactly what it returns in each test.
- *
- * @InjectMocks
- *   Creates a real WhisperService and automatically injects the mock
- *   repository into its constructor.
+ * WhisperService now requires both WhisperRepository and UserRepository,
+ * so both are mocked here.
  */
 @ExtendWith(MockitoExtension.class)
 class WhisperServiceTest {
@@ -43,29 +39,39 @@ class WhisperServiceTest {
     @Mock
     private WhisperRepository whisperRepository;
 
+    @Mock
+    private UserRepository userRepository;   // needed after createWhisper(dto, userId)
+
     @InjectMocks
     private WhisperService whisperService;
 
-    // Reusable objects prepared before every test
+    // Reusable test data
     private WhisperRequestDTO requestDTO;
-    private Whisper savedWhisper;
+    private Whisper            savedWhisper;
+    private User               testUser;
 
-    /**
-     * @BeforeEach runs before every single test method.
-     * We set up common test data here to avoid repeating it in each test.
-     */
     @BeforeEach
     void setUp() {
-        // A typical incoming request from the client
+        // A typical student user
+        testUser = new User();
+        testUser.setId(1L);
+        testUser.setEmail("student@test.com");
+        testUser.setAnonymousName("Silent Panda");
+        testUser.setRole(Role.STUDENT);
+        testUser.setApproved(true);
+
+        // A typical request from the client
         requestDTO = new WhisperRequestDTO("Test Title", "Test content here");
 
-        // What the database would return after saving
+        // What the database returns after saving a whisper
         savedWhisper = new Whisper();
         savedWhisper.setId(1L);
         savedWhisper.setTitle("Test Title");
         savedWhisper.setContent("Test content here");
         savedWhisper.setStatus(WhisperStatus.NOT_SEEN);
         savedWhisper.setCreatedAt(LocalDateTime.now());
+        savedWhisper.setCreatedBy(testUser);
+        savedWhisper.setAnonymousName("Silent Panda");
     }
 
 
@@ -74,54 +80,44 @@ class WhisperServiceTest {
     // =========================================================================
 
     /**
-     * PURPOSE:
-     * Verify that createWhisper() maps the DTO fields correctly onto the
-     * Whisper entity and that it calls repository.save() exactly once.
-     *
-     * HOW IT WORKS:
-     * - when(...).thenReturn(...) tells the fake repository what to return
-     *   when save() is called. We don't hit a real database.
-     * - assertThat(...) checks the returned object has the expected values.
-     * - verify(...) confirms save() was called exactly 1 time.
+     * PURPOSE: Verify that createWhisper() maps DTO fields onto the entity,
+     * links the author, and calls repository.save() exactly once.
      */
     @Test
     @DisplayName("createWhisper: should save whisper with correct title and content")
     void createWhisper_shouldSaveWhisperWithCorrectFields() {
 
-        // ARRANGE — tell the mock what to return when save() is called
+        // ARRANGE
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(whisperRepository.save(any(Whisper.class))).thenReturn(savedWhisper);
 
-        // ACT — call the real method we are testing
-        Whisper result = whisperService.createWhisper(requestDTO);
+        // ACT — note: createWhisper now requires (dto, userId)
+        Whisper result = whisperService.createWhisper(requestDTO, 1L);
 
-        // ASSERT — check the result is correct
+        // ASSERT
         assertThat(result.getTitle()).isEqualTo("Test Title");
         assertThat(result.getContent()).isEqualTo("Test content here");
 
-        // Confirm save() was called exactly once
+        verify(userRepository,    times(1)).findById(1L);
         verify(whisperRepository, times(1)).save(any(Whisper.class));
     }
 
     /**
-     * PURPOSE:
-     * Verify that a newly created whisper always starts with status NOT_SEEN
-     * and has a createdAt timestamp — regardless of what the caller passes in.
-     *
-     * WHY THIS MATTERS:
-     * These two fields are set inside the service, not by the caller.
-     * This test guards against accidental changes to that logic.
+     * PURPOSE: Verify that createWhisper() sets status = NOT_SEEN
+     * and createdAt automatically — the caller cannot control these.
      */
     @Test
     @DisplayName("createWhisper: should set status NOT_SEEN and createdAt automatically")
     void createWhisper_shouldSetStatusAndTimestamp() {
 
         // ARRANGE
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(whisperRepository.save(any(Whisper.class))).thenReturn(savedWhisper);
 
         // ACT
-        Whisper result = whisperService.createWhisper(requestDTO);
+        Whisper result = whisperService.createWhisper(requestDTO, 1L);
 
-        // ASSERT — status must be NOT_SEEN, createdAt must not be null
+        // ASSERT
         assertThat(result.getStatus()).isEqualTo(WhisperStatus.NOT_SEEN);
         assertThat(result.getCreatedAt()).isNotNull();
     }
@@ -132,14 +128,7 @@ class WhisperServiceTest {
     // =========================================================================
 
     /**
-     * PURPOSE:
-     * Verify that update() loads the existing whisper, applies the new title
-     * and content from the DTO, and saves it back.
-     *
-     * HOW IT WORKS:
-     * - We mock findById() to return an existing whisper (simulates DB lookup).
-     * - We mock save() to return the updated whisper.
-     * - We assert that the returned whisper has the new values.
+     * PURPOSE: Verify that update() applies new title/content and saves.
      */
     @Test
     @DisplayName("update: should update title and content of existing whisper")
@@ -164,39 +153,74 @@ class WhisperServiceTest {
         assertThat(result.getTitle()).isEqualTo("New Title");
         assertThat(result.getContent()).isEqualTo("New content here");
 
-        // Both findById and save should each be called exactly once
         verify(whisperRepository, times(1)).findById(1L);
         verify(whisperRepository, times(1)).save(any(Whisper.class));
     }
 
     /**
-     * PURPOSE:
-     * Verify that update() throws a RuntimeException when the whisper ID
+     * PURPOSE: Verify that update() throws RuntimeException when the ID
      * does not exist in the database.
-     *
-     * WHY THIS MATTERS:
-     * The service has .orElseThrow(() -> new RuntimeException("Whisper not found")).
-     * This test confirms that error path actually works.
-     *
-     * HOW IT WORKS:
-     * - We mock findById() to return Optional.empty() (nothing found).
-     * - assertThatThrownBy() confirms the exception is thrown with the
-     *   correct message. No manual try/catch needed.
      */
     @Test
     @DisplayName("update: should throw RuntimeException when whisper not found")
     void update_shouldThrowException_whenWhisperNotFound() {
 
-        // ARRANGE — simulate ID 99 not existing in the database
+        // ARRANGE
         when(whisperRepository.findById(99L)).thenReturn(Optional.empty());
 
-        // ACT + ASSERT — expect an exception to be thrown
+        // ACT + ASSERT
         assertThatThrownBy(() -> whisperService.update(99L, requestDTO))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Whisper not found");
 
-        // save() must NOT be called if the whisper doesn't exist
         verify(whisperRepository, never()).save(any());
+    }
+
+
+    // =========================================================================
+    //  delete() TESTS
+    // =========================================================================
+
+    /**
+     * PURPOSE: Verify that a NOT_SEEN whisper can be deleted successfully.
+     */
+    @Test
+    @DisplayName("delete: should delete a NOT_SEEN whisper")
+    void delete_shouldDeleteNotSeenWhisper() {
+
+        // ARRANGE — whisper is NOT_SEEN (deletable)
+        when(whisperRepository.findById(1L)).thenReturn(Optional.of(savedWhisper));
+        doNothing().when(whisperRepository).delete(savedWhisper);
+
+        // ACT — should not throw
+        whisperService.delete(1L);
+
+        // ASSERT
+        verify(whisperRepository, times(1)).delete(savedWhisper);
+    }
+
+    /**
+     * PURPOSE: Verify that a SEEN whisper CANNOT be deleted.
+     * Once admin has seen it, the student can no longer remove it.
+     */
+    @Test
+    @DisplayName("delete: should throw RuntimeException when whisper is already SEEN")
+    void delete_shouldThrowException_whenWhisperIsSeen() {
+
+        // ARRANGE — whisper has been seen by admin
+        Whisper seenWhisper = new Whisper();
+        seenWhisper.setId(2L);
+        seenWhisper.setStatus(WhisperStatus.SEEN);
+
+        when(whisperRepository.findById(2L)).thenReturn(Optional.of(seenWhisper));
+
+        // ACT + ASSERT
+        assertThatThrownBy(() -> whisperService.delete(2L))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("already been seen");
+
+        // delete() must never be called on a SEEN whisper
+        verify(whisperRepository, never()).delete(any());
     }
 
 
@@ -205,25 +229,16 @@ class WhisperServiceTest {
     // =========================================================================
 
     /**
-     * PURPOSE:
-     * Verify that markAsSeen() changes the whisper's status from NOT_SEEN
-     * to SEEN and saves it.
-     *
-     * WHY THIS MATTERS:
-     * This is the core business logic of marking a whisper as read.
-     * We confirm the status field is actually flipped — not just that save()
-     * was called.
+     * PURPOSE: Verify that markAsSeen() flips status to SEEN and saves.
      */
     @Test
     @DisplayName("markAsSeen: should change status from NOT_SEEN to SEEN")
     void markAsSeen_shouldSetStatusToSeen() {
 
-        // ARRANGE — whisper starts as NOT_SEEN
+        // ARRANGE
         Whisper seenWhisper = new Whisper();
         seenWhisper.setId(1L);
-        seenWhisper.setTitle("Test Title");
-        seenWhisper.setContent("Test content here");
-        seenWhisper.setStatus(WhisperStatus.SEEN); // what the DB returns after save
+        seenWhisper.setStatus(WhisperStatus.SEEN);
 
         when(whisperRepository.findById(1L)).thenReturn(Optional.of(savedWhisper));
         when(whisperRepository.save(any(Whisper.class))).thenReturn(seenWhisper);
@@ -231,7 +246,7 @@ class WhisperServiceTest {
         // ACT
         Whisper result = whisperService.markAsSeen(1L);
 
-        // ASSERT — status must now be SEEN
+        // ASSERT
         assertThat(result.getStatus()).isEqualTo(WhisperStatus.SEEN);
 
         verify(whisperRepository, times(1)).findById(1L);
@@ -239,20 +254,13 @@ class WhisperServiceTest {
     }
 
     /**
-     * PURPOSE:
-     * Verify that markAsSeen() throws a RuntimeException when the whisper
-     * ID does not exist — same defensive check as update().
-     *
-     * WHY THIS MATTERS:
-     * Both update() and markAsSeen() share the same orElseThrow pattern.
-     * We test this for markAsSeen() independently because each method must
-     * be verified on its own — a bug in one should not mask a bug in another.
+     * PURPOSE: Verify that markAsSeen() throws when the whisper ID is missing.
      */
     @Test
     @DisplayName("markAsSeen: should throw RuntimeException when whisper not found")
     void markAsSeen_shouldThrowException_whenWhisperNotFound() {
 
-        // ARRANGE — simulate ID 99 not existing
+        // ARRANGE
         when(whisperRepository.findById(99L)).thenReturn(Optional.empty());
 
         // ACT + ASSERT
@@ -260,7 +268,6 @@ class WhisperServiceTest {
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("Whisper not found");
 
-        // save() must never be called if the whisper doesn't exist
         verify(whisperRepository, never()).save(any());
     }
 }

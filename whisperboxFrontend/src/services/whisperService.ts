@@ -51,6 +51,21 @@ export interface WhisperPayload {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Fetch whispers belonging to the currently logged-in user.
+ * Uses the new GET /api/whispers/mine endpoint.
+ * Supports server-side pagination and sorting.
+ */
+export const getMyWhispers = (
+  page      = 0,
+  size      = 10,
+  sortBy    = 'createdAt',
+  direction = 'desc'
+): Promise<WhisperPage> =>
+  api
+    .get<WhisperPage>('/api/whispers/mine', { params: { page, size, sortBy, direction } })
+    .then((res) => res.data)
+
+/**
  * Fetch a page of whispers.
  *
  * Endpoint: GET /api/whispers?page=0&size=10&sortBy=createdAt&direction=desc
